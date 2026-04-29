@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 accelerate==1.13.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.5
@@ -64,3 +65,13 @@ tzdata==2026.1
 urllib3==2.6.3
 xxhash==3.6.0
 yarl==1.23.0
+=======
+streamlit
+plotly
+python-dotenv
+edge-tts
+google-genai
+httpx
+PyPDF2
+beautifulsoup4
+>>>>>>> dd65b8b0ff520f33678bff0ce96fb968e9ed8166

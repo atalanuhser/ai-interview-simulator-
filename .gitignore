@@ -1,0 +1,13 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+.env
+.idea/
+
+response.mp3
+mulakatlar.db
+
+database.py
+main_interview.py
