@@ -1,8 +1,11 @@
-streamlit
-plotly
-python-dotenv
-edge-tts
 google-genai
-httpx
+python-dotenv
+streamlit
 PyPDF2
 beautifulsoup4
+SpeechRecognition
+gTTS
+plotly
+pandas
+pytest
+openai
