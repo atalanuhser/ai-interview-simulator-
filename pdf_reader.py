@@ -1,30 +1,33 @@
 import PyPDF2
 
-def extract_content(input_data):
+# 1. CV Okuma Fonksiyonu (Arkadaşının beklediği isim)
+def parse_cv(file):
     """
-    Sprint 1: CV ve metin verilerini mülakat simülasyonu için hazırlar[cite: 1, 2].
+    PDF formatındaki CV'yi okur ve metne çevirir[cite: 1].
     """
-    # 1. Metin girişi kontrolü (Örn: Yapıştırılan iş ilanı)
+    try:
+        reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in reader.pages:
+            content = page.extract_text()
+            if content:
+                text += content + "\n"
+        return text.strip()
+    except Exception as e:
+        return f"CV okuma hatası: {e}"
+
+# 2. İş İlanı Okuma Fonksiyonu (Arkadaşının beklediği isim)
+def parse_job_description(input_data):
+    """
+    İş ilanı metnini hazırlar. 
+    Not: Sprint 2'de buraya BeautifulSoup4 temizliği eklenecektir.
+    """
     if isinstance(input_data, str):
         return input_data.strip()
+    
+    # Eğer iş ilanı da PDF olarak gelirse yukarıdaki mantığı kullanabiliriz
+    return parse_cv(input_data)
 
-    # 2. PDF dosyası kontrolü (Örn: Yüklenen CV)
-    try:
-        reader = PyPDF2.PdfReader(input_data)
-        extracted_text = ""
-        
-        # Tüm sayfaları tek tek oku[cite: 1]
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                extracted_text += text + "\n"
-        
-        return extracted_text.strip()
-
-    except Exception as e:
-        # Hata durumunda sistemi durdurmaz, mesaj döner
-        return f"Veri okuma hatası: {str(e)}"
-
-# Geliştirici Testi
+# Test Bölümü
 if __name__ == "__main__":
-    print("Sprint 1 Modülü Hazır.")
+    print("Data Modülü: parse_cv ve parse_job_description hazır!")
