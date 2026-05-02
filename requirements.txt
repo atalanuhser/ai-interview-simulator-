@@ -1,0 +1,2 @@
+PyPDFPyPDF2
+beautifulsoup4
