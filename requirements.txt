@@ -1,2 +1,5 @@
-PyPDFPyPDF2
+PyPDF2
 beautifulsoup4
+pyodbc
+streamlit
+pandas
