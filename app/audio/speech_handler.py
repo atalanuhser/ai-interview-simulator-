@@ -3,45 +3,48 @@ from gtts import gTTS
 import speech_recognition as sr
 import io
 
+
 def text_to_speech(text: str):
     """
-    AI yanıtını sese çevirir ve Streamlit arayüzünde (tarayıcıda) oynatır.
-    OS bağımsızdır (Windows ve Mac'te çalışır).
+    Text'i sese çevirir ve audio buffer döndürür
+    (Artık direkt çalmaz → interview içinde kullanılır)
     """
     if not text:
-        return
-        
+        return None
+
     try:
-        # Sesi diske yazmadan doğrudan belleğe (RAM) kaydet
         tts = gTTS(text=text, lang='en')
+
         audio_fp = io.BytesIO()
         tts.write_to_fp(audio_fp)
-        
-        # Sesi kullanıcının tarayıcısında oynat
-        st.audio(audio_fp, format="audio/mp3")
-        
+        audio_fp.seek(0)
+
+        return audio_fp  # 🔥 ÖNEMLİ
+
     except Exception as e:
         st.error(f"TTS Error: {str(e)}")
+        return None
 
-def process_audio_data(audio_bytes) -> str:
+
+def process_audio_data(audio_bytes) -> str | None:
     """
-    Tarayıcıdaki mikrofondan gelen ham ses verisini alır ve metne çevirir.
+    Mikrofon sesini text'e çevirir
+    Hata olursa None döner (loop engeller)
     """
     r = sr.Recognizer()
-    
+
     try:
-        # Gelen bayt verisini ses dosyası gibi işle
         audio_file = io.BytesIO(audio_bytes)
+
         with sr.AudioFile(audio_file) as source:
             audio = r.record(source)
-            
-        # Google üzerinden İngilizce olarak metne çevir
+
         text = r.recognize_google(audio, language="en-US")
         return text
-        
+
     except sr.UnknownValueError:
-        return "Error: Could not understand audio"
+        return None
     except sr.RequestError:
-        return "Error: Speech service is down"
-    except Exception as e:
-        return f"System Error: {str(e)}"
+        return None
+    except Exception:
+        return None
