@@ -1,11 +1,10 @@
-from google import genai
+from groq import Groq
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 def get_client():
     return client

@@ -1,5 +1,13 @@
+groq
+google-genai
+python-dotenv
+streamlit
 PyPDF2
 beautifulsoup4
-pyodbc
-streamlit
+SpeechRecognition
+gTTS
+plotly
 pandas
+pytest
+openai
+requests
