@@ -24,19 +24,16 @@ def parse_final_scores(final_data: dict) -> dict:
 
 
 def generate_scores_from_history(qa_history: list, position: str, candidate_name: str) -> dict:
-    from google import genai
-    from dotenv import load_dotenv
-    import os
-    load_dotenv()
-
     prompt = build_scoring_prompt(qa_history, position, candidate_name)
     client = get_client()
-
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
-        contents=prompt
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+        max_tokens=1000,
     )
-    clean = response.text.strip().replace("```json", "").replace("```", "").strip()
+    clean = response.choices[0].message.content.strip()
+    clean = clean.replace("```json", "").replace("```", "").strip()
 
     try:
         data = json.loads(clean)
