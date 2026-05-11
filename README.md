@@ -189,6 +189,253 @@ pytest tests/
 ```
 
 ---
+#  API Key Documentation
+
+## AI-Powered Interview Simulation
+
+### Groq API — Technical Reference
+
+-----
+
+## 1. Overview
+
+|                  |                                |
+|------------------|--------------------------------|
+|**API Provider**  |Groq                            |
+|**API Type**      |REST                            |
+|**Base URL**      |`https://api.groq.com/openai/v1`|
+|**Model Used**    |`llama3-8b-8192`                |
+|**Authentication**|Bearer Token (API Key)          |
+|**Cost**          |Free (with rate limits)         |
+|**Official Docs** |<https://console.groq.com/docs> |
+
+-----
+
+## 2. How to Get Your API Key
+
+1. Go to <https://console.groq.com>
+1. Click **Sign Up** → create a free account
+1. Confirm your email address
+1. After login, click **API Keys** in the left menu
+1. Click **Create API Key** → give it a name (e.g. `interview-app`)
+1. **Copy the key immediately** — it will not be shown again
+
+-----
+
+## 3. Where the Key Lives in the Project
+
+The key is stored in a `.env` file in the root folder of the project:
+
+```
+ai-interview-simulation/
+├── .env              ← key goes here
+├── main.py
+├── .gitignore        ← .env must be listed here
+```
+
+**`.env` file content:**
+
+```env
+GROQ_API_KEY=your_api_key_here
+```
+
+** Never commit `.env` to GitHub.**
+Make sure your `.gitignore` contains:
+
+```
+.env
+```
+
+-----
+
+## 4. How the Key is Loaded in the Code
+
+The project uses the `python-dotenv` library to read the key from the `.env` file.
+
+**In `ai_engine.py`:**
+
+```python
+import os
+from dotenv import load_dotenv
+from groq import Groq
+
+load_dotenv()
+
+client = Groq(
+    api_key=os.environ.get("GROQ_API_KEY")
+)
+```
+
+-----
+
+## 5. How the API is Used
+
+### 5.1 Generating Interview Questions
+
+The CV text and job description are sent to the API. The model returns interview questions.
+
+```python
+def generate_questions(cv_text: str, job_text: str) -> str:
+    response = client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a professional HR interviewer. Ask questions based only on the CV and job description provided."
+            },
+            {
+                "role": "user",
+                "content": f"CV:\n{cv_text}\n\nJob Description:\n{job_text}\n\nGenerate 5 interview questions."
+            }
+        ],
+        max_tokens=1024,
+        temperature=0.7
+    )
+    return response.choices[0].message.content
+```
+
+### 5.2 Evaluating User Answers
+
+After the interview, answers are sent back to the API for scoring.
+
+```python
+def evaluate_answer(question: str, answer: str) -> dict:
+    response = client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are an HR evaluator. Score the answer from 0 to 10 and give short feedback."
+            },
+            {
+                "role": "user",
+                "content": f"Question: {question}\nAnswer: {answer}\n\nReturn a JSON with: score (0-10), feedback (1 sentence)."
+            }
+        ],
+        max_tokens=256,
+        temperature=0.3
+    )
+    return response.choices[0].message.content
+```
+
+-----
+
+## 6. API Request & Response Structure
+
+### Request (what we send)
+
+```json
+{
+  "model": "llama3-8b-8192",
+  "messages": [
+    { "role": "system", "content": "You are a professional HR interviewer..." },
+    { "role": "user",   "content": "CV: ...\nJob: ...\nGenerate 5 questions." }
+  ],
+  "max_tokens": 1024,
+  "temperature": 0.7
+}
+```
+
+### Response (what we get back)
+
+```json
+{
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion",
+  "model": "llama3-8b-8192",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "1. Can you walk me through your experience with Python?\n2. ..."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 312,
+    "completion_tokens": 180,
+    "total_tokens": 492
+  }
+}
+```
+
+The content we use: `response.choices[0].message.content`
+
+-----
+
+## 7. Rate Limits (Free Tier)
+
+|Limit              |Value |
+|-------------------|------|
+|Requests per minute|30    |
+|Tokens per minute  |14,400|
+|Tokens per day     |14,400|
+|Requests per day   |14,400|
+
+
+> These limits apply to the free tier as of 2025. Check [console.groq.com](https://console.groq.com) for current limits.
+
+-----
+
+## 8. Error Codes
+
+|HTTP Code|Error                |Cause                          |Fix                                  |
+|---------|---------------------|-------------------------------|-------------------------------------|
+|`401`    |`Unauthorized`       |API key is wrong or missing    |Check the key in your `.env` file    |
+|`429`    |`Rate limit exceeded`|Too many requests              |Wait and try again, or use a new key |
+|`400`    |`Bad request`        |The prompt is empty or too long|Check what you are sending to the API|
+|`500`    |`Server error`       |Groq side problem              |Wait a few minutes and try again     |
+
+**Error handling in code:**
+
+```python
+try:
+    response = client.chat.completions.create(...)
+except Exception as e:
+    print(f"API Error: {e}")
+```
+
+-----
+
+## 9. Model Parameters
+
+|Parameter    |Value Used                          |What it does                                   |
+|-------------|------------------------------------|-----------------------------------------------|
+|`model`      |`llama3-8b-8192`                    |The AI model — fast and free                   |
+|`max_tokens` |`1024` (questions) / `256` (scoring)|Max length of the response                     |
+|`temperature`|`0.7` (questions) / `0.3` (scoring) |Higher = more creative. Lower = more consistent|
+
+-----
+
+## 10. Security Rules
+
+- ✅ Store the key in `.env` only
+- ✅ Add `.env` to `.gitignore`
+- ❌ Never hardcode the key in Python files
+- ❌ Never share the key in chat, email, or GitHub
+- ❌ Never print the key in the terminal or logs
+
+**If your key is exposed:**
+
+1. Go to [console.groq.com](https://console.groq.com)
+1. Click **API Keys**
+1. **Delete** the exposed key
+1. Create a new one
+1. Update your `.env` file
+
+-----
+
+## 11. Useful Links
+
+|Resource        |Link                                                                          |
+|----------------|------------------------------------------------------------------------------|
+|Groq Console    |[console.groq.com](https://console.groq.com)                                  |
+|Groq API Docs   |[console.groq.com/docs](https://console.groq.com/docs)                        |
+|Groq Models List|[console.groq.com/docs/models](https://console.groq.com/docs/models)          |
+|Groq Rate Limits|[console.groq.com/docs/rate-limits](https://console.groq.com/docs/rate-limits)|
+|Python Groq SDK |[pypi.org/project/groq](https://pypi.org/project/groq/)                       |
 
 ## What we did each week
 
