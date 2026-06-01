@@ -189,264 +189,294 @@ pytest tests/
 ```
 
 ---
-#  API Key Documentation
+# 🔑 API Key Documentation
+## AI-Powered Interview Simulation — Groq API
 
-## AI-Powered Interview Simulation
-
-### Groq API — Technical Reference
-
------
+---
 
 ## 1. Overview
 
-|                  |                                |
-|------------------|--------------------------------|
-|**API Provider**  |Groq                            |
-|**API Type**      |REST                            |
-|**Base URL**      |`https://api.groq.com/openai/v1`|
-|**Model Used**    |`llama3-8b-8192`                |
-|**Authentication**|Bearer Token (API Key)          |
-|**Cost**          |Free (with rate limits)         |
-|**Official Docs** |<https://console.groq.com/docs> |
+| | |
+|---|---|
+| **API Provider** | Groq |
+| **Model** | `llama-3.3-70b-versatile` |
+| **Base URL** | `https://api.groq.com/openai/v1` |
+| **Authentication** | API Key (Bearer Token) |
+| **Environment Variable** | `GROQ_API_KEY` |
+| **Loaded In** | `app/ai/gemini_client.py` |
+| **Used In** | `app/ai/interview_engine.py` |
+| **Cost** | Free (rate limits apply) |
 
------
+---
 
-## 2. How to Get Your API Key
+## 2. How to Get the API Key
 
-1. Go to <https://console.groq.com>
-1. Click **Sign Up** → create a free account
-1. Confirm your email address
-1. After login, click **API Keys** in the left menu
-1. Click **Create API Key** → give it a name (e.g. `interview-app`)
-1. **Copy the key immediately** — it will not be shown again
+1. Go to [https://console.groq.com](https://console.groq.com)
+2. Create a free account and confirm your email
+3. Click **API Keys** in the left menu
+4. Click **Create API Key** → give it any name (e.g. `interview-app`)
+5. **Copy the key immediately** — it will not be shown again
 
------
+---
 
-## 3. Where the Key Lives in the Project
+## 3. Setting Up the Key
 
-The key is stored in a `.env` file in the root folder of the project:
+Create a `.env` file in the root folder of the project (same level as `main.py`):
 
 ```
-ai-interview-simulation/
-├── .env              ← key goes here
-├── main.py
-├── .gitignore        ← .env must be listed here
-```
-
-**`.env` file content:**
-
-```env
 GROQ_API_KEY=your_api_key_here
 ```
 
-** Never commit `.env` to GitHub.**
-Make sure your `.gitignore` contains:
-
+**Example:**
 ```
-.env
+GROQ_API_KEY=gsk_abc123xyz456...
 ```
 
------
+> ⚠️ Make sure `.env` is in your `.gitignore` — never upload it to GitHub.
 
-## 4. How the Key is Loaded in the Code
+---
 
-The project uses the `python-dotenv` library to read the key from the `.env` file.
+## 4. How the Key is Used in the Code
 
-**In `ai_engine.py`:**
+### `app/ai/gemini_client.py` — Connection file
+
+This file loads the key from `.env` and creates the Groq client object.
+All other files in the project use this client.
 
 ```python
-import os
-from dotenv import load_dotenv
 from groq import Groq
+from dotenv import import load_dotenv
+import os
 
 load_dotenv()
 
-client = Groq(
-    api_key=os.environ.get("GROQ_API_KEY")
-)
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+def get_client():
+    return client
 ```
 
------
+**What each line does:**
 
-## 5. How the API is Used
+| Line | What it does |
+|------|-------------|
+| `load_dotenv()` | Reads the `.env` file and loads `GROQ_API_KEY` into memory |
+| `os.getenv("GROQ_API_KEY")` | Gets the key value from the environment |
+| `Groq(api_key=...)` | Creates the connection to Groq with that key |
+| `get_client()` | Returns the client so other files can use it |
 
-### 5.1 Generating Interview Questions
+---
 
-The CV text and job description are sent to the API. The model returns interview questions.
+### `app/ai/interview_engine.py` — Where the API is called
+
+This file has two functions that call the Groq API.
+
+#### `start_interview()` — Starts the interview, asks the first question
 
 ```python
-def generate_questions(cv_text: str, job_text: str) -> str:
+def start_interview(candidate_name: str, position: str, ...):
+    system_prompt = build_system_prompt(candidate_name, ...)
+    client = get_client()
+    history = [{"role": "system", "content": system_prompt}]
+    
     response = client.chat.completions.create(
-        model="llama3-8b-8192",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a professional HR interviewer. Ask questions based only on the CV and job description provided."
-            },
-            {
-                "role": "user",
-                "content": f"CV:\n{cv_text}\n\nJob Description:\n{job_text}\n\nGenerate 5 interview questions."
-            }
-        ],
-        max_tokens=1024,
-        temperature=0.7
+        model="llama-3.3-70b-versatile",
+        messages=history + [{"role": "user", "content": ...}],
+        temperature=0.2,
+        max_tokens=500,
     )
-    return response.choices[0].message.content
+    
+    first_question = response.choices[0].message.content
+    history.append({"role": "assistant", "content": ...})
+    return history, first_question
 ```
 
-### 5.2 Evaluating User Answers
-
-After the interview, answers are sent back to the API for scoring.
+#### `send_answer()` — Sends user's answer, gets next question
 
 ```python
-def evaluate_answer(question: str, answer: str) -> dict:
+def send_answer(history: list, user_answer: str):
+    client = get_client()
+    history.append({"role": "user", "content": user_answer})
+    
     response = client.chat.completions.create(
-        model="llama3-8b-8192",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are an HR evaluator. Score the answer from 0 to 10 and give short feedback."
-            },
-            {
-                "role": "user",
-                "content": f"Question: {question}\nAnswer: {answer}\n\nReturn a JSON with: score (0-10), feedback (1 sentence)."
-            }
-        ],
-        max_tokens=256,
-        temperature=0.3
+        model="llama-3.3-70b-versatile",
+        messages=history,
+        temperature=0.2,
+        max_tokens=500,
     )
-    return response.choices[0].message.content
+    
+    text = response.choices[0].message.content.strip()
+    clean = text.replace("```json", "").replace("```", "")
+    history.append({"role": "assistant", "content": ...})
+    
+    if '"interview_finished": true' in clean:
+        final_data = json.loads(clean)
+        return None, True, final_data, history
 ```
 
------
+---
 
-## 6. API Request & Response Structure
+## 5. API Parameters Explained
 
-### Request (what we send)
+| Parameter | Value | Why |
+|-----------|-------|-----|
+| `model` | `llama-3.3-70b-versatile` | Large, capable model — gives smart interview questions |
+| `temperature` | `0.2` | Low value = consistent, focused answers. Not too creative. Good for interviews. |
+| `max_tokens` | `500` | Limits response length. Enough for one question or one score. |
+
+---
+
+## 6. Request & Response Flow
+
+### What we send (Request)
 
 ```json
 {
-  "model": "llama3-8b-8192",
+  "model": "llama-3.3-70b-versatile",
   "messages": [
-    { "role": "system", "content": "You are a professional HR interviewer..." },
-    { "role": "user",   "content": "CV: ...\nJob: ...\nGenerate 5 questions." }
+    { "role": "system",    "content": "You are an HR interviewer. Use only the CV and job text..." },
+    { "role": "user",      "content": "CV: ...\nJob: ...\nStart the interview." },
+    { "role": "assistant", "content": "Tell me about your experience with Python." },
+    { "role": "user",      "content": "I worked on a web scraping project using Python..." }
   ],
-  "max_tokens": 1024,
-  "temperature": 0.7
+  "temperature": 0.2,
+  "max_tokens": 500
 }
 ```
 
-### Response (what we get back)
+> The full conversation `history` is sent every time — this is how the AI remembers what was already said.
+
+### What we get back (Response)
 
 ```json
 {
-  "id": "chatcmpl-abc123",
-  "object": "chat.completion",
-  "model": "llama3-8b-8192",
   "choices": [
     {
-      "index": 0,
       "message": {
         "role": "assistant",
-        "content": "1. Can you walk me through your experience with Python?\n2. ..."
+        "content": "That's interesting. Can you explain how you handled errors in that project?"
       },
       "finish_reason": "stop"
     }
   ],
   "usage": {
-    "prompt_tokens": 312,
-    "completion_tokens": 180,
-    "total_tokens": 492
+    "prompt_tokens": 412,
+    "completion_tokens": 28,
+    "total_tokens": 440
   }
 }
 ```
 
-The content we use: `response.choices[0].message.content`
+The part we use: `response.choices[0].message.content`
 
------
+### When the interview ends
 
-## 7. Rate Limits (Free Tier)
+When all questions are done, the AI returns a JSON string inside the response:
 
-|Limit              |Value |
-|-------------------|------|
-|Requests per minute|30    |
-|Tokens per minute  |14,400|
-|Tokens per day     |14,400|
-|Requests per day   |14,400|
-
-
-> These limits apply to the free tier as of 2025. Check [console.groq.com](https://console.groq.com) for current limits.
-
------
-
-## 8. Error Codes
-
-|HTTP Code|Error                |Cause                          |Fix                                  |
-|---------|---------------------|-------------------------------|-------------------------------------|
-|`401`    |`Unauthorized`       |API key is wrong or missing    |Check the key in your `.env` file    |
-|`429`    |`Rate limit exceeded`|Too many requests              |Wait and try again, or use a new key |
-|`400`    |`Bad request`        |The prompt is empty or too long|Check what you are sending to the API|
-|`500`    |`Server error`       |Groq side problem              |Wait a few minutes and try again     |
-
-**Error handling in code:**
-
-```python
-try:
-    response = client.chat.completions.create(...)
-except Exception as e:
-    print(f"API Error: {e}")
+```json
+{
+  "interview_finished": true,
+  "scores": {
+    "technical_competency": 8,
+    "communication": 7,
+    "problem_solving": 6,
+    "experience_fit": 8,
+    "motivation": 9
+  },
+  "feedback": "Strong technical background. Work on clearer communication.",
+  "recommendation": "suitable"
+}
 ```
 
------
-
-## 9. Model Parameters
-
-|Parameter    |Value Used                          |What it does                                   |
-|-------------|------------------------------------|-----------------------------------------------|
-|`model`      |`llama3-8b-8192`                    |The AI model — fast and free                   |
-|`max_tokens` |`1024` (questions) / `256` (scoring)|Max length of the response                     |
-|`temperature`|`0.7` (questions) / `0.3` (scoring) |Higher = more creative. Lower = more consistent|
-
------
-
-## 10. Security Rules
-
-- ✅ Store the key in `.env` only
-- ✅ Add `.env` to `.gitignore`
-- ❌ Never hardcode the key in Python files
-- ❌ Never share the key in chat, email, or GitHub
-- ❌ Never print the key in the terminal or logs
-
-**If your key is exposed:**
-
-1. Go to [console.groq.com](https://console.groq.com)
-1. Click **API Keys**
-1. **Delete** the exposed key
-1. Create a new one
-1. Update your `.env` file
-
------
-
-## 11. Useful Links
-
-|Resource        |Link                                                                          |
-|----------------|------------------------------------------------------------------------------|
-|Groq Console    |[console.groq.com](https://console.groq.com)                                  |
-|Groq API Docs   |[console.groq.com/docs](https://console.groq.com/docs)                        |
-|Groq Models List|[console.groq.com/docs/models](https://console.groq.com/docs/models)          |
-|Groq Rate Limits|[console.groq.com/docs/rate-limits](https://console.groq.com/docs/rate-limits)|
-|Python Groq SDK |[pypi.org/project/groq](https://pypi.org/project/groq/)                       |
-
-## What we did each week
-
-| Sprint | Weeks | What we finished |
-|--------|-------|------------------|
-| Sprint 1 | 1–2 | App opens. PDF upload works. API is connected. |
-| Sprint 2 | 3–4–5 | Voice tools, data tools, and AI all work on their own. |
-| Sprint 3 | 6–7 | All parts work together. A full interview works from start to end. |
-| Sprint 4 | 8 | Tests done. Errors fixed. App is clean and ready to hand in. |
+The code detects `"interview_finished": true` and stops the interview.
 
 ---
+
+## 7. Conversation History
+
+The project keeps a `history` list that grows with every message:
+
+```python
+history = [
+    {"role": "system",    "content": "You are an HR interviewer..."},
+    {"role": "user",      "content": "CV: ...\nJob: ..."},
+    {"role": "assistant", "content": "Question 1..."},
+    {"role": "user",      "content": "User answer 1..."},
+    {"role": "assistant", "content": "Question 2..."},
+    ...
+]
+```
+
+This full history is sent with every API call so the AI has context for the whole conversation.
+
+---
+
+## 8. Rate Limits (Free Tier)
+
+| Limit | Value |
+|-------|-------|
+| Requests per minute | 30 |
+| Tokens per minute | 6,000 |
+| Tokens per day | 500,000 |
+
+Each interview uses approximately **400–600 tokens per question**.
+A 5-question interview uses roughly **2,000–3,000 tokens** total.
+
+---
+
+## 9. Error Codes
+
+| Code | Error | Cause | Fix |
+|------|-------|-------|-----|
+| `401` | Unauthorized | Wrong or missing API key | Check `GROQ_API_KEY` in `.env` |
+| `429` | Rate limit exceeded | Too many requests | Wait 1 minute and try again |
+| `400` | Bad request | Empty or too-long message | Check what is being sent to the API |
+| `500` | Server error | Groq side issue | Wait a few minutes and retry |
+
+---
+
+## 10. Security
+
+- ✅ Key is stored in `.env` — not in any Python file
+- ✅ Key is loaded with `load_dotenv()` + `os.getenv()`
+- ✅ `.env` must be listed in `.gitignore`
+- ❌ Never hardcode the key directly in `gemini_client.py` or any other file
+- ❌ Never print the key in the terminal
+
+**If the key is exposed:**
+1. Go to [console.groq.com](https://console.groq.com) → API Keys
+2. Delete the exposed key immediately
+3. Create a new key
+4. Update your `.env` file
+
+---
+
+## 11. File Map
+
+```
+app/
+└── ai/
+    ├── gemini_client.py    ← loads key, creates Groq client
+    ├── interview_engine.py ← calls the API (start_interview, send_answer)
+    ├── prompts.py          ← builds the system prompt sent to the API
+    ├── scoring.py          ← handles the final score JSON from the API
+    ├── pipeline.py         ← manages the full interview flow
+    └── test_connection.py  ← tests if the API key works
+```
+
+---
+
+## 12. Testing the Connection
+
+Run this to check if your API key works:
+
+```bash
+python app/ai/test_connection.py
+```
+
+If the key is correct, you will see a response from the model in the terminal.
+If you see a `401` error, the key in your `.env` file is wrong.
+
 
 ## Who made this?
 
